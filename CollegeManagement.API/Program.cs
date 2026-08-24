@@ -5,7 +5,22 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Npgsql;
 
-var builder = WebApplication.CreateBuilder(args);
+// Configure WebApplicationOptions to explicitly bind ContentRootPath for Linux Docker containers
+var options = new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+};
+
+var builder = WebApplication.CreateBuilder(options);
+
+// Configure Configuration Sources with reloadOnChange: false to eliminate Linux inotify FileSystemWatcher SIGSEGV (Status 139) crashes
+builder.Configuration.Sources.Clear();
+builder.Configuration
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables();
 
 // 1. Configure Port for Render / Production
 var envPort = Environment.GetEnvironmentVariable("PORT");

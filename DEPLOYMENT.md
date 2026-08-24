@@ -4,10 +4,27 @@ This guide provides step-by-step instructions for deploying the **College Manage
 
 ---
 
+## 🐞 Fix Summary: Resolving Container Exit Status 139 (SIGSEGV)
+
+### What Caused Exit Code 139?
+Exit code 139 on Linux indicates a **Segmentation Fault (`SIGSEGV`)**. In .NET 8 Docker containers on cloud Linux platforms (like Render), `WebApplication.CreateBuilder(args)` crashed due to:
+1. **Linux `inotify` File System Watcher Segfaults**: Default host configuration uses `reloadOnChange: true` on `appsettings.json`. On container overlay file systems, `System.IO.FileSystemWatcher`'s native `inotify` calls triggered memory violations (`SIGSEGV`).
+2. **Native Globalization/ICU Segfaults**: Native glibc culture/locale initialization in minimal runtime containers caused segfaults during host initialization.
+
+### Fix Applied
+1. **Disabled `reloadOnChange` & Configured `WebApplicationOptions`** (`Program.cs`):
+   Set `ContentRootPath = AppContext.BaseDirectory` and registered configuration files with `reloadOnChange: false`.
+2. **Enabled Invariant Globalization** (`CollegeManagement.API.csproj` & `Dockerfile`):
+   Set `<InvariantGlobalization>true</InvariantGlobalization>` and `ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true`.
+3. **Set Polling File Watcher** (`Dockerfile`):
+   Added `ENV DOTNET_USE_POLLING_FILE_WATCHER=true`.
+
+---
+
 ## 📌 Prerequisites
 
 1. A [Render Account](https://render.com/).
-2. Git repository pushed to GitHub (e.g., `College-Management-API`).
+2. Git repository pushed to GitHub containing this updated code.
 
 ---
 
@@ -18,7 +35,7 @@ This guide provides step-by-step instructions for deploying the **College Manage
    - **Name**: `college-management-db`
    - **Database**: `college_management`
    - **User**: `postgres`
-   - **Region**: Choose the region closest to you (e.g., Oregon / Frankfurt / Singapore)
+   - **Region**: Choose the region closest to you
    - **Instance Type**: Free or Starter
 3. Click **Create Database**.
 4. Once the database status changes to **Available**, scroll down to **Connection Info**.
@@ -29,7 +46,7 @@ This guide provides step-by-step instructions for deploying the **College Manage
 ## 🐳 Step 2: Create a Web Service on Render
 
 1. On the Render Dashboard, click **New +** -> **Web Service**.
-2. Connect your GitHub repository containing the project.
+2. Connect your GitHub repository.
 3. Configure the web service settings:
    - **Name**: `college-management-api`
    - **Region**: Select the **same region** as your PostgreSQL database.
@@ -58,16 +75,16 @@ Scroll to the **Environment Variables** section and add the following keys:
 ## ⚡ Step 4: Deploy and Verify
 
 1. Click **Create Web Service**.
-2. Render will build the Docker container using .NET 8 SDK, restore NuGet packages, compile the project, and start the service.
-3. On initial startup, the application executes `context.Database.Migrate()`:
-   - EF Core automatically creates the database schema and tables (`Students`, `FacultyMembers`, `Courses`, `Enrollments`, `AttendanceRecords`, `Marks`).
+2. Render will build the Docker container using .NET 8 SDK, restore NuGet packages, compile the project, and start the service cleanly without exit 139 errors.
+3. On initial startup, `context.Database.Migrate()` executes automatically:
+   - EF Core creates database tables (`Students`, `FacultyMembers`, `Courses`, `Enrollments`, `AttendanceRecords`, `Marks`).
    - `DbInitializer` seeds 10 initial students, 5 faculty members, 8 courses, enrollments, attendance, and mark sheets.
 
 ---
 
 ## 🌐 Step 5: Verify Deployment URLs
 
-Once deployment completes, open your Render web service URL (e.g., `https://college-management-api.onrender.com`):
+Open your Render web service URL (e.g., `https://college-management-api.onrender.com`):
 
 * 📊 **Dashboard Portal**: `https://<your-render-app>.onrender.com/`
 * 📖 **Swagger OpenAPI Docs**: `https://<your-render-app>.onrender.com/swagger`
@@ -76,12 +93,11 @@ Once deployment completes, open your Render web service URL (e.g., `https://coll
 
 ---
 
-## 🛠️ Local Development (Remains Intact)
+## 🛠️ Local Development
 
-Local development using `localhost:5000` remains completely functional:
+Local development remains 100% operational:
 
 ```bash
-# Set local PostgreSQL connection string or use default appsettings.json
 dotnet restore
 dotnet build
 dotnet ef database update --project CollegeManagement.API
