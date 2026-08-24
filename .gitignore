@@ -1,0 +1,18 @@
+## Visual Studio / .NET Core build output
+**/[Bb]in/
+**/[Oo]bj/
+**/.vs/
+**/.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+
+## User Secrets
+**/secrets.json
+
+## Database / Local files
+*.db
+*.sqlite
+appsettings.Development.json
+appsettings.Local.json
+*.log
